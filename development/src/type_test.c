@@ -17,7 +17,9 @@ int main(int argc, char** argv) {
     char str[] = "prueba";
     long long int lli = 1213456789;
     double dbl = 1.002;
+    void *aux = NULL;
 
+    /*value_length*/
     if (value_length(INT, &i) != sizeof(int) ||
         value_length(STR, str) != (strlen(str) + 1)*sizeof(char) ||
         value_length(LLNG, &lli) != sizeof(long long int) ||
@@ -27,6 +29,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    /*print_value*/
     print_value(stdout, INT, &i);       printf("\n");
     print_value(stdout, STR, str);      printf("\n");
     print_value(stdout, LLNG, &lli);    printf("\n");
@@ -36,6 +39,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    /*value_cmp*/
     if (value_cmp(INT, &i, &i) ||
         value_cmp(STR, str, str) ||
         value_cmp(LLNG, &lli, &lli) ||
@@ -45,6 +49,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    /*type_parse*/
     if (type_parse("INT")  != INT ||
         type_parse("STR")  != STR ||
         type_parse("LLNG") != LLNG||
@@ -54,23 +59,59 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (*((int*)value_parse(INT, "2"))  != 2 ||
-        strcmp((char*)value_parse(STR, "otro_test"), "otro_test") ||
-        *((long long int*)value_parse(LLNG, "987654321")) != 987654321||
-        *((double*)value_parse(DBL, "9.87654321"))  != 9.87654321)
-    {
+    /*value_parse*/
+    while (1) {
+        aux = value_parse(INT, "2");
+        if (*((int*)aux) != 2) break;
+        free(aux);
+
+        aux = value_parse(STR, "otro_test");
+        if (strcmp((char*)aux, "otro_test")) break;
+        free(aux);
+
+        aux = value_parse(LLNG, "987654321");
+        if (*((long long int*)aux) != 987654321) break;
+        free(aux);
+
+        aux = value_parse(DBL, "9.87654321");
+        if (*((double*)aux) != 9.87654321) break;
+        free(aux);
+
+        aux = NULL; break;
+    }
+    if (aux != NULL) {
+        free(aux);
         printf("Error en value_parse.\n");
         return 1;
     }
 
-    if (type_to_str(INT)  != "INT" ||
-        type_to_str(STR)  != "STR" ||
-        type_to_str(LLNG) != "LLNG"||
-        type_to_str(DBL)  != "DBL")
-    {
+    /*type_to_str*/
+    while (1) {
+        aux = type_to_str(INT);
+        if (strcmp((char*)aux, "INT")) break;
+        free(aux);
+
+        aux = type_to_str(STR);
+        if (strcmp((char*)aux, "STR")) break;
+        free(aux);
+
+        aux = type_to_str(LLNG);
+        if (strcmp((char*)aux, "LLNG")) break;
+        free(aux);
+
+        aux = type_to_str(DBL);
+        if (strcmp((char*)aux, "DBL")) break;
+        free(aux);
+
+        aux = NULL; break;
+    }
+    if (aux != NULL) {
+        free(aux);
         printf("Error en type_to_str.\n");
         return 1;
     }
 
+    /*exit*/
+    printf("Salida correcta.\n");
     return 0;
 }
