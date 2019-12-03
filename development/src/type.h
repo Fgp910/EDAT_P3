@@ -30,6 +30,9 @@ value_cmp(type_t type, void* value1, void* value2);
 type_t type_parse(char* type_name);
 
 /* parses a string to the appropriate value */
-void* value_parse(type_t type, char* literal);
+void *value_parse(type_t type, char* literal);
+
+/* Allocates and returns a string with the description of a type */
+char *type_to_str(type_t type);
 
 #endif
