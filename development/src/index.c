@@ -3,12 +3,18 @@
 #include <string.h>
 #include "index.h"
 
+typedef struct {
+    int key;                /*It only works with integers by now*/
+    int n_offsets;
+    long *offsets;
+} entry;
+
 struct index_ {
-
+    FILE *f;
+    type_t type;
+    int n_keys;
+    entry **entries;
 };
-
-
-
 
 /*
    Function: int index_create(char *path, int type)
@@ -38,6 +44,7 @@ int index_create(char *path, type_t type) {
     }
 
     fwrite(type, sizeof(type_t), 1, f);
+    fwrite(0, sizeof(int), 1, f);
 
     return 1;
 }
@@ -65,7 +72,75 @@ int index_create(char *path, type_t type) {
 
  */
 index_t* index_open(char* path) {
-    
+    FILE *f;
+    int n, i, j, key, n_offsets;
+    type_t type;
+    index_t *index;
+
+    f=fopen(path, "rb+");
+    if (f == NULL) {
+        return NULL;
+    }
+
+    fread(type, sizeof(type_t), 1, f);
+    fread(n, sizeof(int), 1, f);
+
+    index = (index_t*)malloc(sizeof(index_t));
+    if (index == NULL) {
+        fclose(f);
+        return NULL;
+    }
+
+    index->f = f;
+    index->type = type;
+    index->n_offsets = n;
+
+    index->entries = (entry**)malloc(n*sizeof(entry*));
+    if (index->entries == NULL) {
+        fclose(f);
+        return NULL;
+    }
+
+    for (i = 0; i < n; i++) {
+        index->entries[i] = (entry*)malloc(sizeof(entry));
+        if (index->entries[i] == NULL) {
+            for (i--; i >= 0; i--) {
+                free(index->entries[i]);
+            }
+            free(index->entries);
+            free(index);
+            return NULL;
+        }
+
+        if(fread(index->entries[i]->key, sizeof(int), 1, f) < 0) {
+            for (; i >= 0; i--) {
+                free(index->entries[i]);
+            }
+            free(index->entries);
+            free(index);
+            return NULL;
+        }
+        if(fread(index->entries[i]->n_offsets, sizeof(int), 1, f) < 0) {
+            for (; i >= 0; i--) {
+                free(index->entries[i]);
+            }
+            free(index->entries);
+            free(index);
+            return NULL;
+        }
+        for (j = 0; j < n_offsets; j++) {
+            if(fread(index->entries[i]->offsets[j], sizeof(long), 1, f) < 0) {
+                for (; i >= 0; i--) {
+                    free(index->entries[i]);
+                }
+                free(index->entries);
+                free(index);
+                return NULL;
+            }
+        }
+
+
+    }
 }
 
 
@@ -183,7 +258,8 @@ void index_close(index_t *idx) {
    Parameters:
    index:  the index the function operates upon
    n: number of the record to be returned
-   nposs: output paramters: the number of positions associated to this key
+   key: output parameter: the key of the record
+   nposs: output parameter: the number of positions associated to this key
 
    Returns:
 
@@ -194,6 +270,6 @@ void index_close(index_t *idx) {
 
    See index_get for explanation on nposs and pos: they are the same stuff
 */
-long *index_get_order(index_t *idx, int n, int* nposs) {
+long *index_get_order(index_t *index, int n, int *key, int* nposs) {
   return NULL;
 }
