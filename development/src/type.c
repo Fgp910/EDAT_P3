@@ -96,3 +96,19 @@ void* value_parse(type_t type, char* literal) {
 
     return value;
 }
+
+char *
+type_to_str(type_t type) {
+    switch(type) {
+        case INT:
+            return strdup("INT");
+        case STR:
+            return strdup("STR");
+        case LLNG:
+            return strdup("LLNG");
+        case DBL:
+            return strdup("DBL");
+        default:
+            return strdup("Invalid");
+    }
+}

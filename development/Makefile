@@ -45,6 +45,9 @@ table_test.o:	$(SOURCE_DIR)/table_test.c $(SOURCE_DIR)/table.h $(SOURCE_DIR)/typ
 type.o:	$(SOURCE_DIR)/type.c $(SOURCE_DIR)/type.h
 	$(CC) $(CFLAGS) $(SOURCE_DIR)/type.c
 
+type_test.o:	$(SOURCE_DIR)/type_test.c $(SOURCE_DIR)/type.h
+	$(CC) $(CFLAGS) $(SOURCE_DIR)/type_test.c
+
 main.o:	$(SOURCE_DIR)/main.c
 	$(CC) $(CFLAGS) $(SOURCE_DIR)/main.c
 
@@ -57,6 +60,9 @@ test:	main.o $(UTILFILES) $(ALLFILES)
 	$(LN) $(LFLAGS) -o $(INSTALL_DIR)/test main.o $(UTILFILES) $(ALLFILES) $(LIBS)
 
 table_test:	$(SOURCE_DIR)/table_test.o $(SOURCE_DIR)/table.o $(SOURCE_DIR)/type.o
+	$(LN) $(LFLAGS) -o $@.exe $^
+
+type_test:	$(SOURCE_DIR)/type_test.o $(SOURCE_DIR)/type.o
 	$(LN) $(LFLAGS) -o $@.exe $^
 
 all:	test clean
