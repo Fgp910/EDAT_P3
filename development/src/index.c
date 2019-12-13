@@ -10,7 +10,7 @@ typedef struct {
 } entry;
 
 struct index_ {
-    FILE *path;
+    char *path;
     type_t type;
     int n_keys;
     entry **entries;
@@ -36,6 +36,7 @@ int binary_search(index_t *idx, int key);
  */
 int index_create(char *path, type_t type) {
     FILE *f;
+    int c = 0; 
 
     if (path == NULL) {
         return 0;
@@ -47,7 +48,7 @@ int index_create(char *path, type_t type) {
     }
 
     fwrite(&type, sizeof(type_t), 1, f);
-    fwrite(0, sizeof(int), 1, f);
+    fwrite(&c, sizeof(int), 1, f);
 
     return 1;
 }
@@ -210,6 +211,8 @@ int index_save(index_t* idx) {
 */
 int index_put(index_t *idx, int key, long pos) {
     int m, i;
+    entry **ent;
+    long *lg;
 
     if (idx == NULL || pos < 0) {
         return 0;
@@ -218,12 +221,34 @@ int index_put(index_t *idx, int key, long pos) {
     m = binary_search(idx, key);
     if (m >= 0) {
         idx->entries[m]->n_offsets++;
-        realloc(idx->entries[m]->offsets, idx->entries[m]->n_offsets);
+        lg = realloc(idx->entries[m]->offsets, idx->entries[m]->n_offsets);
+        if (lg == NULL) {
+            return 0;
+        }
+        else {
+            free(idx->entries[m]->offsets);
+            idx->entries[m]->offsets = lg;
+        }
         idx->entries[m]->offsets[idx->entries[m]->n_offsets-1] = pos; 
     }
     else {
         idx->n_keys++;
-        realloc(idx->entries, idx->n_keys);
+        ent = realloc(idx->entries, idx->n_keys);
+        if (ent == NULL) {
+            return 0;
+        }
+        else {
+            for (i = 0; i < idx->n_keys; i++) {
+                if (idx->entries[i] != NULL) {
+                    if (idx->entries[i]->offsets != NULL) {
+                        free(idx->entries[i]->offsets);
+                    }
+                    free(idx->entries[i]);
+                }
+            }
+            free(idx->entries);
+            idx->entries = ent;
+        }
         for (i = idx->n_keys-1; i > -m-1; i--) {
             idx->entries[i]= idx->entries[i-1];
         }
@@ -362,7 +387,7 @@ int binary_search(index_t *idx, int key) {
     int middle;
 
     if (idx == NULL) {
-        return NULL;
+        return -1;
     }
 
     low = 0;
