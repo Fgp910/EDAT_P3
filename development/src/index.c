@@ -10,11 +10,14 @@ typedef struct {
 } entry;
 
 struct index_ {
-    FILE *f;
+    FILE *path;
     type_t type;
     int n_keys;
     entry **entries;
 };
+
+/*Private fuctions prototypes*/
+int binary_search(index_t *idx, int key);
 
 /*
    Function: int index_create(char *path, int type)
@@ -43,7 +46,7 @@ int index_create(char *path, type_t type) {
         return 0;
     }
 
-    fwrite(type, sizeof(type_t), 1, f);
+    fwrite(&type, sizeof(type_t), 1, f);
     fwrite(0, sizeof(int), 1, f);
 
     return 1;
@@ -76,14 +79,21 @@ index_t* index_open(char* path) {
     int n, i, j, key, n_offsets;
     type_t type;
     index_t *index;
+    entry *ent;
 
-    f=fopen(path, "rb+");
+    f=fopen(path, "rb");
     if (f == NULL) {
         return NULL;
     }
 
-    fread(type, sizeof(type_t), 1, f);
-    fread(n, sizeof(int), 1, f);
+    if (fread(&type, sizeof(type_t), 1, f) < 0) {
+        fclose(f);
+        return NULL;
+    }
+    if (fread(&n, sizeof(int), 1, f) < 0) {
+        fclose(f);
+        return NULL;
+    }
 
     index = (index_t*)malloc(sizeof(index_t));
     if (index == NULL) {
@@ -91,56 +101,47 @@ index_t* index_open(char* path) {
         return NULL;
     }
 
-    index->f = f;
+    index->path = path;
     index->type = type;
-    index->n_offsets = n;
+    index->n_keys = n;
 
     index->entries = (entry**)malloc(n*sizeof(entry*));
     if (index->entries == NULL) {
         fclose(f);
+        index_close(index);
         return NULL;
     }
 
     for (i = 0; i < n; i++) {
         index->entries[i] = (entry*)malloc(sizeof(entry));
         if (index->entries[i] == NULL) {
-            for (i--; i >= 0; i--) {
-                free(index->entries[i]);
-            }
-            free(index->entries);
-            free(index);
+            index_close(index);
             return NULL;
         }
 
-        if(fread(index->entries[i]->key, sizeof(int), 1, f) < 0) {
-            for (; i >= 0; i--) {
-                free(index->entries[i]);
-            }
-            free(index->entries);
-            free(index);
+        if(fread(&(index->entries[i]->key), sizeof(int), 1, f) < 0) {
+            index_close(index);
             return NULL;
         }
-        if(fread(index->entries[i]->n_offsets, sizeof(int), 1, f) < 0) {
-            for (; i >= 0; i--) {
-                free(index->entries[i]);
-            }
-            free(index->entries);
-            free(index);
+        if(fread(&(index->entries[i]->n_offsets), sizeof(int), 1, f) < 0) {
+            index_close(index);
             return NULL;
         }
         for (j = 0; j < n_offsets; j++) {
-            if(fread(index->entries[i]->offsets[j], sizeof(long), 1, f) < 0) {
-                for (; i >= 0; i--) {
-                    free(index->entries[i]);
-                }
-                free(index->entries);
-                free(index);
+            if(fread(&(index->entries[i]->offsets[j]), sizeof(long), 1, f) < 0) {
+                index_close(index);
                 return NULL;
             }
         }
 
-
+        for (j = i; j > 0 && index->entries[j]->key < index->entries[j-1]->key; j--) {
+            ent = index->entries[j];
+            index->entries[j] = index->entries[j-1];
+            index->entries[j-1] = ent;
+        }
     }
+    fclose(f);
+    return index;
 }
 
 
@@ -160,7 +161,30 @@ index_t* index_open(char* path) {
 
 */
 int index_save(index_t* idx) {
-  return 0;
+    FILE *f;
+    int i, j;
+
+    if (idx == NULL) {
+        return 0;
+    }
+
+    f = fopen(idx->path, "wb");
+    if (f == NULL) {
+        return 0;
+    }
+
+    fwrite(&(idx->type), sizeof(type_t), 1, f);
+    fwrite(&(idx->n_keys), sizeof(int), 1, f);
+
+    for (i = 0; i < idx->n_keys; i++) {
+        fwrite(&(idx->entries[i]->key), sizeof(int), 1, f);
+        fwrite(&(idx->entries[i]->n_offsets), sizeof(int), 1, f);
+        for (j = 0; j < idx->entries[i]->n_offsets; j++) {
+            fwrite(&(idx->entries[i]->offsets[j]), sizeof(long), 1, f);
+        }
+    }
+
+    return 1;
 }
 
 
@@ -185,7 +209,37 @@ int index_save(index_t* idx) {
 
 */
 int index_put(index_t *idx, int key, long pos) {
-  return 0;
+    int m, i;
+
+    if (idx == NULL || pos < 0) {
+        return 0;
+    }
+
+    m = binary_search(idx, key);
+    if (m >= 0) {
+        idx->entries[m]->n_offsets++;
+        realloc(idx->entries[m]->offsets, idx->entries[m]->n_offsets);
+        idx->entries[m]->offsets[idx->entries[m]->n_offsets-1] = pos; 
+    }
+    else {
+        idx->n_keys++;
+        realloc(idx->entries, idx->n_keys);
+        for (i = idx->n_keys-1; i > -m-1; i--) {
+            idx->entries[i]= idx->entries[i-1];
+        }
+
+        idx->entries[-m-1] = (entry*)malloc(sizeof(entry));
+        if (idx->entries[-m-1]== NULL) {
+            return 0;
+        }
+        idx->entries[-m-1]->key = key;
+        idx->entries[-m-1]->n_offsets = 1;
+        idx->entries[-m-1]->offsets = (long*)malloc(sizeof(long));
+        if (idx->entries[-m-1]->offsets == NULL) {
+            return 0;
+        }
+        idx->entries[-m-1]->offsets[0] = pos;
+    }
 }
 
 
@@ -225,8 +279,19 @@ int index_put(index_t *idx, int key, long pos) {
    caller guarantees that the values returned will not be changed.
 
 */
-long *index_get(index_t *idx, int key, int* nposs) {
-  return NULL;
+long* index_get(index_t *idx, int key, int* nposs) {
+    int m;
+    
+    if (idx == NULL) {
+        return NULL;
+    }
+
+    m= binary_search(idx, key);
+    if (m < 0 || m >= idx->n_keys) {
+        return NULL;
+    }
+    *(nposs) = idx->entries[m]->n_offsets;
+    return idx->entries[m]->offsets;
 }
 
 
@@ -244,7 +309,18 @@ long *index_get(index_t *idx, int key, int* nposs) {
    have to call the function index_save for this.
 */
 void index_close(index_t *idx) {
-  return;
+    int i;
+
+    if (idx == NULL) return;
+
+    if (idx->entries != NULL) {
+        for (i = 0; i < idx->n_keys; i++) {
+            if (idx->entries[i])
+                free(idx->entries[i]);
+        }
+    }
+    free(idx);
+    return;
 }
 
 
@@ -271,5 +347,38 @@ void index_close(index_t *idx) {
    See index_get for explanation on nposs and pos: they are the same stuff
 */
 long *index_get_order(index_t *index, int n, int *key, int* nposs) {
-  return NULL;
+    if (index == NULL  || n < 0 || n >= index->n_keys) {
+        return NULL;
+    }
+
+    *(key) = index->entries[n]->key;
+    *(nposs) = index->entries[n]->n_offsets;
+    return index->entries[n]->offsets;
 }
+
+int binary_search(index_t *idx, int key) {
+    int low;
+    int high;
+    int middle;
+
+    if (idx == NULL) {
+        return NULL;
+    }
+
+    low = 0;
+    high = idx->n_keys-1;
+
+    while(low <= high) {
+        middle = (low+high)/2;
+
+        if (idx->entries[middle]->key == key)
+            return middle; // clave encontrada
+        if (idx->entries[middle]->key < key) {
+            low = middle+1;
+        }
+        else {
+            high = middle-1;
+        }   
+    }
+    return -(middle+1); // clave no encontrada
+} 
