@@ -10,7 +10,7 @@ OTHER_DIR=
 #
 # These are some things about the compiler
 #
-CC=gcc -c 
+CC=gcc -c
 LN=gcc
 
 CFLAGS=-O -I/usr/include -I$(UTIL_DIR) -I$(SOURCE_DIR) 

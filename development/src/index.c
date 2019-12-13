@@ -50,6 +50,8 @@ int index_create(char *path, type_t type) {
     fwrite(&type, sizeof(type_t), 1, f);
     fwrite(&c, sizeof(int), 1, f);
 
+    fclose(f);
+
     return 1;
 }
 
@@ -82,7 +84,7 @@ index_t* index_open(char* path) {
     index_t *index;
     entry *ent;
 
-    f=fopen(path, "rb");
+    f = fopen(path, "rb");
     if (f == NULL) {
         return NULL;
     }
