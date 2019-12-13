@@ -1,5 +1,10 @@
  /******************************************************************************
 
+Welcome to GDB Online.
+GDB online is an online compiler and debugger tool for C, C++, Python, Java, PHP, Ruby, Perl,
+C#, VB, Swift, Pascal, Fortran, Haskell, Objective-C, Assembly, HTML, CSS, JS, SQLite, Prolog.
+Code, Compile, Run and Debug online from anywhere in world.
+
 *******************************************************************************/
 #include <stdio.h>
 #include <string.h>
@@ -62,10 +67,10 @@ int main(int argc, char **argv)
             printf("\n");
             if (!strncmp(cmd, "quit", strlen("quit"))) {
                 c_key_restore(cs);
+		c_close(cs);
                 printf("bye!\n");
                 exit(0);
-            }
-            
+            }            
             c_execute(cs, cmd);
             c_print_status(cs);
         }

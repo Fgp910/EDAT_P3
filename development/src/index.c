@@ -79,7 +79,7 @@ int index_create(char *path, type_t type) {
  */
 index_t* index_open(char* path) {
     FILE *f;
-    int n, i, j, key, n_offsets;
+    int n, i, j, key;
     type_t type;
     index_t *index;
     entry *ent;
@@ -89,11 +89,11 @@ index_t* index_open(char* path) {
         return NULL;
     }
 
-    if (fread(&type, sizeof(type_t), 1, f) < 0) {
+    if (fread(&type, sizeof(type_t), 1, f) != 1) {
         fclose(f);
         return NULL;
     }
-    if (fread(&n, sizeof(int), 1, f) < 0) {
+    if (fread(&n, sizeof(int), 1, f) != 1) {
         fclose(f);
         return NULL;
     }
@@ -122,16 +122,21 @@ index_t* index_open(char* path) {
             return NULL;
         }
 
-        if(fread(&(index->entries[i]->key), sizeof(int), 1, f) < 0) {
+        if (fread(&(index->entries[i]->key), sizeof(int), 1, f) != 1) {
             index_close(index);
             return NULL;
         }
-        if(fread(&(index->entries[i]->n_offsets), sizeof(int), 1, f) < 0) {
+        if (fread(&(index->entries[i]->n_offsets), sizeof(int), 1, f) != 1) {
             index_close(index);
             return NULL;
         }
-        for (j = 0; j < n_offsets; j++) {
-            if(fread(&(index->entries[i]->offsets[j]), sizeof(long), 1, f) < 0) {
+        index->entries[i]->offsets = (long*)malloc(index->entries[i]->n_offsets*sizeof(long));
+        if (index->entries[i]->offsets == NULL) {
+            index_close(index);
+            return NULL;
+        }
+        for (j = 0; j < index->entries[i]->n_offsets; j++) {
+            if (fread(&(index->entries[i]->offsets[j]), sizeof(long), 1, f) != 1) {
                 index_close(index);
                 return NULL;
             }

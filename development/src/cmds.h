@@ -44,6 +44,9 @@
     
     ifind <key>
     Finds the key <key> and displays the position(s) associated.
+
+    ishow
+    Shows the whole contents of the index currently in memory
     
     tindex <file> <col>
     Creates an index in the file <file> for the column <col> of the 
@@ -70,6 +73,15 @@ typedef struct _cmdstatus cmdstatus;
 cmdstatus *c_create();
 
 
+/*
+  Function: void c_close(cmdstatus *cs);
+
+  Closes a status: closes the table, saves the index and closes it,
+  frees the text space and frees the command structure.
+
+  NOTE: This function must be called for the index to be saved on disk.
+*/
+void c_close(cmdstatus *cs);
 
 /*
     Function: c_key_init(cmdstatus *cs)

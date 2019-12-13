@@ -16,6 +16,7 @@
 #include "cmds.h"
 #include "import.h"
 #include "table.h"
+#include "type.h"
 #include "index.h"
 #include <ctype.h>
 #include <string.h>
@@ -108,9 +109,8 @@ typedef struct {
 
 
 /************************************************************************
- *  I N T E R N A L    F U N C T I O N S 
- * 
- *  Functions that execute the commands
+ *
+ *             A U X I L I A R Y    F U N C T I O N S 
  * 
  ************************************************************************/
 
@@ -237,21 +237,22 @@ char **_get_two_par(char *line, char *cmd, char *err_msg) {
   while(*p && isspace(*p))
     p++;
   if (!(*p)) {
-    printf ("%s\n", err_msg);
+    printf ("(1) %s\n", err_msg);
     return NULL;
   }
   w[0] = p;
   while (*p && !isspace(*p))
     p++;
   if (!(*p)) {
-    printf ("%s\n", err_msg);
+    printf ("(2) %s\n", err_msg);
     return NULL;
   }
   *p = 0;
+  p++;
   while(*p && isspace(*p))
     p++;
   if (!(*p)) {
-    printf ("%s\n", err_msg);
+    printf ("(3) %s\n", err_msg);
     return NULL;
   }
   w[1] = p;
@@ -385,11 +386,14 @@ int _check(cmdstatus *cs) {
   }    
   return 1;
 }
-/* ---------------------------------------------------------------------
-
-    FUNCTIONS THAT IMPLEMENT COMMANDS
 
 
+
+/**********************************************************************
+
+              FUNCTIONS THAT IMPLEMENT COMMANDS
+
+ **********************************************************************
 */
 
 /*
@@ -658,6 +662,219 @@ int _cmd_mkindex(cmdstatus *cs, char*line) {
 }
 
 /*
+  Function:  int _cmd_iinsert(cmdstatus *cs, char*line)
+  
+  Executes the iinsert command: inserts a (key, position) pair into an
+  index.  
+
+  Parameters:
+  cs:   the current status of the program (see the cmdstatus structure
+        definition)
+  line: the complete line given as a command (that is, including the 
+        command itself)
+  
+  returns 1 on success, 0 on failure (prints a message if necessary)
+*/
+int _cmd_iinsert(cmdstatus *cs, char*line) {
+  if (!cs->index_in) {
+    printf("No index defined\n");
+    return 0;
+  }
+
+  char **p = _get_two_par(line, iinsert, "Usage: insert <key> <position>");
+  if (!p) return 0;
+
+  int key = atoi(p[0]);
+  long pos = atol(p[1]);
+  free(p);
+  int n = index_put(cs->index, key, pos);
+  if (n>0) {
+    printf("%d entries in the index\n", n);
+    return 1;
+  }
+  else {
+    printf("Error in insertion\n");
+    return 0;
+  }
+}
+
+/*
+  Function:  int _cmd_ifind(cmdstatus *cs, char*line)
+  
+  Executes the ifind command: searches the index for a key and prints
+  all the positions associated to it.
+
+  Parameters:
+  cs:   the current status of the program (see the cmdstatus structure
+        definition)
+  line: the complete line given as a command (that is, including the 
+        command itself)
+  
+  returns 1 on success, 0 on failure (prints a message if necessary)
+*/
+int _cmd_ifind(cmdstatus *cs, char*line) {
+  char *p = _get_par(line, ifind, "Usage: ifind <key>");
+  if (!p) return 0;
+
+  if (!cs->index_in) {
+    printf("No index defined\n");
+    return 0;
+  }
+
+  int key = atoi(p);
+  int npos = 0;
+
+  long *poss = index_get(cs->index, key, &npos);
+  if (!poss) {
+    printf("Key %d not in the index\n", key);
+    return 1;
+  }
+  else {
+    printf("%d --> ", key);
+    for (int k=0; k<npos; k++) 
+      printf("%ld\t", poss[k]);
+    printf("\n");
+  }
+  return 1;
+}
+
+
+/*
+  Function:  int _cmd_ishow(cmdstatus *cs, char*line)
+  
+  Executes the ishow command: shows the contents of an index in the
+  order in which they are stored (if the index is correct, the primary
+  keys should come out ordered).
+
+  Parameters:
+  cs:   the current status of the program (see the cmdstatus structure
+        definition)
+  line: the complete line given as a command (that is, including the 
+        command itself)
+  
+  returns 1 on success, 0 on failure (prints a message if necessary)
+*/
+int _cmd_ishow(cmdstatus *cs, char*line) {
+  char mycmd[] = ishow;
+  if (strncmp(line, mycmd, strlen(mycmd))) {
+    printf("Command mismatch. called %s on %s\n", mycmd, line);
+    return 0;
+  }
+
+  if (!cs->index_in) {
+    printf("No index defined\n");
+    return 0;
+  }
+
+  int npos = 0;
+  int key = 0;
+  long *poss;
+
+  for (int n=0; poss= index_get_order(cs->index, n, &key, &npos); n++) {
+    printf("%d --> ", key);
+    for (int k=0; k<npos; k++) 
+      printf("%ld\t", poss[k]);
+    printf("\n");
+  }
+  return 1;
+}
+
+
+
+
+/*
+  Function:  int _cmd_tindex(cmdstatus *cs, char*line)
+  
+  Executes the tindex command: Creates an index in the file <file> for
+    the column <col> of the table currently in memory, and stores all
+    the record in the index
+
+  Parameters:
+  cs:   the current status of the program (see the cmdstatus structure
+        definition)
+  line: the complete line given as a command (that is, including the 
+        command itself)
+  
+  returns 1 on success, 0 on failure (prints a message if necessary)
+*/
+int _cmd_tindex(cmdstatus *cs, char*line) {
+  if (!cs->table_in) {
+    printf("No table defined\n");
+    return 0;
+  }
+
+  char **p = _get_two_par(line, tindex, "Usage: ifind <key>");
+  if (!p) return 0;
+  char *file = p[0];
+  int col = atoi(p[1]);
+  free(p);
+  if (col < 0 || col >= table_ncols(cs->table)) {
+    printf ("Table does not have a column number %d\n", col);
+    return 0;
+  }
+  type_t *t = table_types(cs->table);
+  if (t[col] != INT) {
+    printf("Only INT columns can be indexed in this version\n");
+    return 0;
+  }
+  _free_index(cs);
+  index_create(file, t[col]);
+  cs->index = index_open(file);
+
+  long pt = table_first_pos(cs->table);
+  long pt1;
+  while((pt1 = table_read_record(cs->table, pt))>=0) {
+    int key = *((int *) table_get_col(cs->table, col));
+    index_put(cs->index, key, pt);
+    pt = pt1;
+  }
+  index_save(cs->index);
+  cs->indexfile = strdup(file);
+  cs->index_in = 1;
+  return 1;
+}
+
+
+/*
+  Function:  int _cmd_retrieve(cmdstatus *cs, char*line)
+  
+  Executes the retrieve command: searches the index for a key and prints
+  all the positions associated to it.
+
+  Parameters:
+  cs:   the current status of the program (see the cmdstatus structure
+        definition)
+  line: the complete line given as a command (that is, including the 
+        command itself)
+  
+  returns 1 on success, 0 on failure (prints a message if necessary)
+*/
+int _cmd_retrieve(cmdstatus *cs, char*line) {
+  char *p = _get_par(line, retrieve, "Usage: retrieve <key>");
+  if (!p) return 0;
+
+  if (!cs->index_in || !cs->table_in) {
+    printf("You need both a table and its index loaded\n");
+    return 0;
+  }
+  int key = atoi(p);
+  int npos = 0;
+  long *poss = index_get(cs->index, key, &npos);
+  if (!poss) {
+    printf("Key not in the table\n");
+    return 1;
+  }
+  for (int k=0; k<npos; k++) {
+    table_read_record(cs->table, poss[k]);
+    _tuple_show(cs->table);
+  }
+  return 1;
+}
+
+
+
+
+/*
   Function:  int _cmd_help(cmdstatus *cs, char*line)
   
   Executes the help command: prints a help message on the screen
@@ -687,6 +904,7 @@ int _cmd_help(cmdstatus *cs, char *line) {
 
 
 /************************************************************************
+ *
  *  P U B L I C    F U N C T I O N S 
  * 
  * 
@@ -715,6 +933,23 @@ cmdstatus *c_create() {
     cs->key_changed = 0;
     
     return cs;
+}
+
+
+/*
+  Function: void c_close(cmdstatus *cs);
+
+  Closes a status: closes the table, saves the index and closes it,
+  frees the text space and frees the command structure.
+
+  NOTE: This function must be called for the index to be saved on disk.
+*/
+void c_close(cmdstatus *cs) {
+  _free_text(cs);
+  _free_index(cs);
+  _free_table(cs);
+  free(cs);
+  return;
 }
 
 
@@ -821,6 +1056,11 @@ cmd_data cmds[] = {
     {tshow, _cmd_tshow},
     {verify, _cmd_verify},
     {mkindex, _cmd_mkindex},
+    {iinsert, _cmd_iinsert},
+    {ifind, _cmd_ifind},
+    {ishow, _cmd_ishow},
+    {tindex, _cmd_tindex},
+    {retrieve, _cmd_retrieve},
     {help, _cmd_help},
     {NULL, NULL}
 };
