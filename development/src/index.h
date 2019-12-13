@@ -154,6 +154,7 @@ void index_close(index_t *index);
    Parameters:
    index:  the index the function operates upon
    n: number of the record to be returned
+   key: output paramters: the key of the record 
    nposs: output paramters: the number of positions associated to this key
    
    Returns:
@@ -165,6 +166,6 @@ void index_close(index_t *index);
 
    See index_get for explanation on nposs and pos: they are the same stuff
 */
-long *index_get_order(index_t *index, int n, int* nposs);
+long *index_get_order(index_t *index, int n, int *key, int* nposs);
 
 #endif
