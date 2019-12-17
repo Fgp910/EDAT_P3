@@ -16,7 +16,7 @@ struct index_ {
     entry **entries;
 };
 
-/*Private fuctions prototypes*/
+/*** Private fuctions ***/
 int binary_search(index_t *idx, int key);
 
 /*
@@ -110,6 +110,11 @@ index_t* index_open(char* path) {
 
     if (n == 0) {   /*Allocates Entry array of size 1*/
         index->entries = (entry**)malloc(sizeof(entry*));
+        if (index->entries == NULL) {
+            index_close(index);
+            index = NULL;
+        }
+        fclose(f);
         return index;
     }
 
@@ -123,25 +128,30 @@ index_t* index_open(char* path) {
     for (i = 0; i < n; i++) {
         index->entries[i] = (entry*)malloc(sizeof(entry));
         if (index->entries[i] == NULL) {
+            fclose(f);
             index_close(index);
             return NULL;
         }
 
         if (fread(&(index->entries[i]->key), sizeof(int), 1, f) != 1) {
+            fclose(f);
             index_close(index);
             return NULL;
         }
         if (fread(&(index->entries[i]->n_offsets), sizeof(int), 1, f) != 1) {
+            fclose(f);
             index_close(index);
             return NULL;
         }
         index->entries[i]->offsets = (long*)malloc(index->entries[i]->n_offsets*sizeof(long));
         if (index->entries[i]->offsets == NULL) {
+            fclose(f);
             index_close(index);
             return NULL;
         }
         for (j = 0; j < index->entries[i]->n_offsets; j++) {
             if (fread(&(index->entries[i]->offsets[j]), sizeof(long), 1, f) != 1) {
+                fclose(f);
                 index_close(index);
                 return NULL;
             }
@@ -189,7 +199,7 @@ int index_save(index_t* idx) {
     fwrite(&(idx->type), sizeof(type_t), 1, f);
     fwrite(&(idx->n_keys), sizeof(int), 1, f);
 
-    for (i = 0; i < idx->n_keys; i++) {
+    for (i = 0; i < idx->n_keys; i++) {     /*writing index entries*/
         fwrite(&(idx->entries[i]->key), sizeof(int), 1, f);
         fwrite(&(idx->entries[i]->n_offsets), sizeof(int), 1, f);
         for (j = 0; j < idx->entries[i]->n_offsets; j++) {
@@ -336,7 +346,7 @@ long* index_get(index_t *idx, int key, int* nposs) {
         return NULL;
     }
 
-    m= binary_search(idx, key);
+    m = binary_search(idx, key);
     if (m < 0 || m >= idx->n_keys) {
         return NULL;
     }
@@ -365,10 +375,12 @@ void index_close(index_t *idx) {
 
     if (idx->entries != NULL) {
         for (i = 0; i < idx->n_keys; i++) {
-            if (idx->entries[i])
+            if (idx->entries[i]) {
                 free(idx->entries[i]);
+            }
         }
     }
+    free(idx->entries);
     free(idx);
     return;
 }
@@ -406,6 +418,7 @@ long *index_get_order(index_t *index, int n, int *key, int* nposs) {
     return index->entries[n]->offsets;
 }
 
+/*** Private fuctions implementation ***/
 int binary_search(index_t *idx, int key) {
     int low;
     int high;
