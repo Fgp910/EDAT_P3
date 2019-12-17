@@ -36,7 +36,7 @@ int binary_search(index_t *idx, int key);
  */
 int index_create(char *path, type_t type) {
     FILE *f;
-    int c = 0; 
+    int c = 0;
 
     if (path == NULL) {
         return 0;
@@ -108,6 +108,11 @@ index_t* index_open(char* path) {
     index->type = type;
     index->n_keys = n;
 
+    if (n == 0) {   /*Allocates Entry array of size 1*/
+        index->entries = (entry**)malloc(sizeof(entry*));
+        return index;
+    }
+
     index->entries = (entry**)malloc(n*sizeof(entry*));
     if (index->entries == NULL) {
         fclose(f);
@@ -141,7 +146,7 @@ index_t* index_open(char* path) {
                 return NULL;
             }
         }
-
+        /*InsertSort algorithm*/
         for (j = i; j > 0 && index->entries[j]->key < index->entries[j-1]->key; j--) {
             ent = index->entries[j];
             index->entries[j] = index->entries[j-1];
@@ -225,53 +230,66 @@ int index_put(index_t *idx, int key, long pos) {
         return 0;
     }
 
+    if (idx->n_keys == 0) { /*int key is the fisrt key*/
+        idx->entries[0] = (entry*)malloc(sizeof(entry));
+        if (idx->entries[0] == NULL) {
+            return 0;
+        }
+        idx->entries[0]->key = key;
+        idx->entries[0]->n_offsets = 1;
+        idx->entries[0]->offsets = (long*)malloc(sizeof(long));
+        if (idx->entries[0]->offsets == NULL) {
+            free(idx->entries[0]);
+            idx->entries[0] = NULL;
+            return 0;
+        }
+        idx->entries[0]->offsets[0] = pos;
+        return ++idx->n_keys;
+    }
+
     m = binary_search(idx, key);
-    if (m >= 0) {
+    if (m >= 0) { /*If key is found*/
         idx->entries[m]->n_offsets++;
-        lg = realloc(idx->entries[m]->offsets, idx->entries[m]->n_offsets);
+        lg = realloc(idx->entries[m]->offsets, idx->entries[m]->n_offsets*sizeof(long));
         if (lg == NULL) {
             return 0;
         }
         else {
-            free(idx->entries[m]->offsets);
             idx->entries[m]->offsets = lg;
         }
-        idx->entries[m]->offsets[idx->entries[m]->n_offsets-1] = pos; 
+        idx->entries[m]->offsets[idx->entries[m]->n_offsets-1] = pos;
     }
-    else {
+    else {  /*If key is not found, -m-1 is the position to insert new entry*/
         idx->n_keys++;
-        ent = realloc(idx->entries, idx->n_keys);
+        ent = realloc(idx->entries, idx->n_keys*sizeof(entry));
         if (ent == NULL) {
+            idx->n_keys--;
             return 0;
         }
         else {
-            for (i = 0; i < idx->n_keys; i++) {
-                if (idx->entries[i] != NULL) {
-                    if (idx->entries[i]->offsets != NULL) {
-                        free(idx->entries[i]->offsets);
-                    }
-                    free(idx->entries[i]);
-                }
-            }
-            free(idx->entries);
             idx->entries = ent;
         }
         for (i = idx->n_keys-1; i > -m-1; i--) {
-            idx->entries[i]= idx->entries[i-1];
+            idx->entries[i] = idx->entries[i-1];
         }
 
         idx->entries[-m-1] = (entry*)malloc(sizeof(entry));
-        if (idx->entries[-m-1]== NULL) {
+        if (idx->entries[-m-1] == NULL) {
+            idx->n_keys--;
             return 0;
         }
         idx->entries[-m-1]->key = key;
         idx->entries[-m-1]->n_offsets = 1;
         idx->entries[-m-1]->offsets = (long*)malloc(sizeof(long));
         if (idx->entries[-m-1]->offsets == NULL) {
+            free(idx->entries[-m-1]);
+            idx->entries[-m-1] = NULL;
+            idx->n_keys--;
             return 0;
         }
         idx->entries[-m-1]->offsets[0] = pos;
     }
+    return idx->n_keys;
 }
 
 
@@ -313,7 +331,7 @@ int index_put(index_t *idx, int key, long pos) {
 */
 long* index_get(index_t *idx, int key, int* nposs) {
     int m;
-    
+
     if (idx == NULL) {
         return NULL;
     }
@@ -392,6 +410,7 @@ int binary_search(index_t *idx, int key) {
     int low;
     int high;
     int middle;
+    int flag = 0;
 
     if (idx == NULL) {
         return -1;
@@ -404,13 +423,15 @@ int binary_search(index_t *idx, int key) {
         middle = (low+high)/2;
 
         if (idx->entries[middle]->key == key)
-            return middle; // clave encontrada
+            return middle; /*key found*/
         if (idx->entries[middle]->key < key) {
             low = middle+1;
+            flag = 1;   /*if key wins the last comparison*/
         }
         else {
             high = middle-1;
-        }   
+            flag = 0;   /*if key loses the last comparison*/
+        }
     }
-    return -(middle+1); // clave no encontrada
-} 
+    return -(middle+1+flag); /*key not found*/
+}
