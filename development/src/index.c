@@ -302,10 +302,10 @@ int index_put(index_t *idx, int key, long pos) {
             free(aux);
             return 0;
         }
-        else {
-            idx->entries = ent;
-        }
-        for (i = idx->n_keys-1; i > -m-1; i--) {
+
+        idx->entries = ent;
+
+        for (i = idx->n_keys-1; i > -m-1; i--) {	/*Making room for new key*/
             idx->entries[i] = idx->entries[i-1];
         }
 
