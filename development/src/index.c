@@ -3,6 +3,7 @@
 #include <string.h>
 #include "index.h"
 
+/***Structures definition***/
 typedef struct {
     int key;                /*It only works with integers by now*/
     int n_offsets;
@@ -16,9 +17,11 @@ struct index_ {
     entry **entries;
 };
 
-/*** Private fuctions ***/
+/*** Private fuctions prototypes***/
 int binary_search(index_t *idx, int key);
 
+
+/***Public interface implementation***/
 /*
    Function: int index_create(char *path, int type)
 
@@ -233,7 +236,7 @@ int index_save(index_t* idx) {
 */
 int index_put(index_t *idx, int key, long pos) {
     int m, i;
-    entry **ent;
+    entry **ent, *aux;
     long *lg;
 
     if (idx == NULL || pos < 0) {
@@ -259,6 +262,12 @@ int index_put(index_t *idx, int key, long pos) {
 
     m = binary_search(idx, key);
     if (m >= 0) { /*If key is found*/
+        for (i = 0; i < idx->entries[m]->n_offsets; i++) {
+            if (idx->entries[m]->offsets[i] == pos) {
+                return 0;
+            }
+        }
+        
         idx->entries[m]->n_offsets++;
         lg = realloc(idx->entries[m]->offsets, idx->entries[m]->n_offsets*sizeof(long));
         if (lg == NULL) {
@@ -267,13 +276,30 @@ int index_put(index_t *idx, int key, long pos) {
         else {
             idx->entries[m]->offsets = lg;
         }
+
         idx->entries[m]->offsets[idx->entries[m]->n_offsets-1] = pos;
     }
     else {  /*If key is not found, -m-1 is the position to insert new entry*/
+        aux = (entry*)malloc(sizeof(entry));
+        if (aux == NULL) {
+            return 0;
+        }
+
+        aux->key = key;
+        aux->n_offsets = 1;
+        aux->offsets = (long*)malloc(sizeof(long));
+        if (aux->offsets == NULL) {
+            free(aux);
+            return 0;
+        }
+        aux->offsets[0] = pos;
+        
         idx->n_keys++;
         ent = realloc(idx->entries, idx->n_keys*sizeof(entry));
         if (ent == NULL) {
             idx->n_keys--;
+            free(aux->offsets);
+            free(aux);
             return 0;
         }
         else {
@@ -283,22 +309,9 @@ int index_put(index_t *idx, int key, long pos) {
             idx->entries[i] = idx->entries[i-1];
         }
 
-        idx->entries[-m-1] = (entry*)malloc(sizeof(entry));
-        if (idx->entries[-m-1] == NULL) {
-            idx->n_keys--;
-            return 0;
-        }
-        idx->entries[-m-1]->key = key;
-        idx->entries[-m-1]->n_offsets = 1;
-        idx->entries[-m-1]->offsets = (long*)malloc(sizeof(long));
-        if (idx->entries[-m-1]->offsets == NULL) {
-            free(idx->entries[-m-1]);
-            idx->entries[-m-1] = NULL;
-            idx->n_keys--;
-            return 0;
-        }
-        idx->entries[-m-1]->offsets[0] = pos;
+        idx->entries[-m-1] = aux;
     }
+
     return idx->n_keys;
 }
 
