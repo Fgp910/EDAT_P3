@@ -1,0 +1,4 @@
+    customer_id|     first_name|      last_name|    create_date|                                 address|
+            148|        Eleanor|           Hunt|     2006-02-14|     1952 Pune Lane, Saint-Denis, Runion|
+            300|           John|     Farnsworth|     2006-02-14|     41 El Alto Parkway, Parbhani, India|
+

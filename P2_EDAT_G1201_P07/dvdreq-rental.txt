@@ -1,0 +1,10 @@
+Select	rental.rental_id, rental.rental_date, film.film_id, film.title, staff.staff_id, staff.first_name, staff.last_name, staff.store_id, payment.amount
+From	rental, inventory, film, payment, staff
+Where	rental.customer_id = 533 and
+	rental.inventory_id = inventory.inventory_id and
+	inventory.film_id = film.film_id and
+	rental.staff_id = staff.staff_id and
+	payment.rental_id = rental.rental_id and
+	rental.rental_date >= '2005-05-26' and
+	rental.rental_date <= '2005-06-20'
+Order by rental.rental_date;

@@ -1,0 +1,32 @@
+WITH count_category AS (
+		SELECT	category.category_id, Count(*) AS total
+		FROM	rental, inventory, film, film_category, category
+		WHERE	rental.customer_id = 222
+			AND	rental.inventory_id = inventory.inventory_id
+			AND	inventory.film_id = film.film_id
+			AND	film.film_id = film_category.film_id
+			AND	film_category.category_id = category.category_id
+		GROUP BY category.category_id
+	), fav_category AS (
+		SELECT	category_id
+		FROM	count_category
+		ORDER BY total DESC LIMIT 1
+	), count_film AS (
+		SELECT	film_category.film_id, Count(*) AS total
+		FROM	fav_category NATURAL JOIN film_category, inventory, rental
+		WHERE	film_category.film_id = inventory.film_id
+			AND	inventory.inventory_id = rental.inventory_id
+		GROUP BY film_category.film_id
+	), customer_films AS (
+		SELECT	film_category.film_id
+		FROM	fav_category NATURAL JOIN film_category, inventory, rental
+		WHERE	rental.customer_id = 222
+			AND	film_category.film_id = inventory.film_id
+			AND	inventory.inventory_id = rental.inventory_id
+		GROUP BY film_category.film_id
+	)
+
+SELECT	film.title
+FROM	film NATURAL JOIN count_film
+WHERE	film.film_id NOT IN (SELECT * FROM customer_films)
+ORDER BY count_film.total DESC LIMIT 3;
